@@ -21,7 +21,7 @@ Przeczytaj ten plik w całości ZANIM zaczniesz cokolwiek zmieniać. Potem, zale
 
 Imprezowa gra w kręgle w stylu **Jackbox**: **TV = ekran gry** (renderuje wszystko, jest JEDYNYM symulatorem fizyki i źródłem prawdy), **telefony = pady** (dołączają przez QR, wysyłają tylko wejście i komendy). 1–6 graczy, działa też solo. Interfejs pl/en, host wybiera język w lobby (dotyczy całego TV i wszystkich padów).
 
-- **Live:** https://jerzysukiennik.github.io/gzowo-bowling/ → przekierowuje do aktualnej wersji **`v1.2/`**
+- **Live:** https://jerzysukiennik.github.io/gzowo-bowling/ → przekierowuje do aktualnej wersji **`v1.3/`**
 - **Repo:** https://github.com/JerzySukiennik/gzowo-bowling (publiczne, GitHub Pages z `main`/root)
 - **Stack:** czysty HTML/CSS/JS, ES modules z CDN, ZERO builda/frameworka. three.js 0.160, @dimforge/rapier3d-compat 0.12 (fizyka, wasm), Firebase 10.12.2 (modular), qrcodejs, font Fredoka.
 
@@ -76,7 +76,9 @@ curl -s https://jerzysukiennik.github.io/gzowo-bowling/ | grep -o 'v1[.0-9]*/'  
 
 ---
 
-## 4. Architektura plików (`v1.2/` — aktualna)
+## 4. Architektura plików (`v1.3/` — aktualna)
+
+> Zmiany v1.3 wobec drzewa niżej: dochodzi `assets/models/pin.glb` (self-host GLB kręgla, MIT). `js/display/scene.js` ładuje ten GLB (`loadPinAsset`), ma env-map (`setupEnvironment` = PMREM/RoomEnvironment) i adaptacyjne cienie (`configureShadows`). `js/shared/ball3d.js` — kula na `MeshStandardMaterial` (glossy PBR). Reszta drzewa bez zmian.
 
 ```
 v1.2/
@@ -184,7 +186,7 @@ Fazy: `lobby → intro → roundBanner → nextTurn → aiming → rolling → s
 
 Testuj narzędziami `preview_*` (dev server + przeglądarka). Nigdy nie proś Jurka o ręczne sprawdzenie — weryfikuj sam i pokaż dowód (screenshot).
 
-- **Odpal serwer:** jest config w `Projects/.claude/launch.json` o nazwie `gzowo-bowling` serwujący katalog `Gzowo Bowling` na porcie 8517. `preview_start` z tą nazwą. Potem nawiguj przez `preview_eval` na `http://localhost:8517/v1.2/?role=display` (TV) lub `...&role=controller&room=KOD` (pad).
+- **Odpal serwer:** jest config w `Projects/.claude/launch.json` o nazwie `gzowo-bowling` serwujący katalog `Gzowo Bowling` na porcie 8517. `preview_start` z tą nazwą. Potem nawiguj przez `preview_eval` na `http://localhost:8517/v1.3/?role=display` (TV) lub `...&role=controller&room=KOD` (pad).
 - **Testuj małe telefony:** `preview_resize` na 320×640 (najostrzejszy przypadek na wystający tekst) i 375×812. Po zmianie CSS **przeładuj stronę** (`window.location.reload()`) — serwer statyczny nie ma hot-reload, `preview_eval` mierzy stary arkusz dopóki nie przeładujesz.
 - **PUŁAPKA #1 — usypianie karty w tle:** gdy karta TV nie jest na wierzchu, przeglądarka throttluje `requestAnimationFrame`, więc **pętla gry przestaje tykać** (gra „zawiesza się" na `intro`). To artefakt harnessu, NIE bug (na prawdziwym TV ekran jest zawsze widoczny). `preview_screenshot` na moment budzi kartę. Żeby testować logikę TV nie walcząc z tym: albo szybko naprzemiennie screenshot→akcja, albo **wywołuj ścieżki renderujące bezpośrednio** przez `preview_eval`, np.:
   ```js
@@ -230,7 +232,7 @@ Testuj narzędziami `preview_*` (dev server + przeglądarka). Nigdy nie proś Ju
 12. Kontroler landscape-first (w v1.2 COFNIĘTE do pionu — patrz niżej).
 13. Wyśrodkowane intro/join UI, dół ekranu zagospodarowany.
 
-**v1.2** (commit `c701db6`, AKTUALNA) — kolejny feedback Jurka:
+**v1.2** (commit `c701db6`) — kolejny feedback Jurka:
 1. **Muzyka w tle gra ciągle** (chill lo-fi): auto-start uzbrojony w `initAudio` (wantMusic=true) + ponownie w `startGame`; realnie rusza przy pierwszym geście (autoplay policy). Host dalej pause/skip/volume. URL-e Mixkit zweryfikowane (200).
 2. **UI telefonu skaluje się do ekranu:** tokeny fontu `--fs-*` przez `clamp()`/`vmin`; przyciski/chipy/segmenty nie przelewają tekstu na małych ekranach (test 320px). `.tv` nadal ma sztywne px.
 3. **Emotki responsywne** (`flex:1 1 0`, `aspect-ratio:1`, `max-width`), glif wyśrodkowany (flex center + line-height:1). Tutorial + hamburger przeniesione do górnego paska, żeby pasek emotek miał całą szerokość.
@@ -239,6 +241,11 @@ Testuj narzędziami `preview_*` (dev server + przeglądarka). Nigdy nie proś Ju
 6. **Ekran pauzy: jednolite (nieprzezroczyste) tło** (`--bg`), wyśrodkowany nagłówek/tabela/stopka; powtórki w tle wyłączone (i tak niewidoczne). `tickPaused()` to no-op.
 7. **Piny na padzie zgadzają się z 3D:** display pisze `game.rackMask`, pad renderuje dokładnie te piny (`setPins(mask)`), zamiast gasić pierwsze N.
 
+**v1.3** (commit `7b94f25`, AKTUALNA) — audyt + modele (zlecenie Jurka):
+1. **Bug hunt** (multi-agentowy, adwersaryjny: 8 finderów → skeptic-verify): 13 potwierdzonych bugów naprawionych, 11 false-positive odrzuconych. Najważniejsze: spare-po-rynnie brany za strike (guard pierwszej kuli w `resolveThrow`); **migracja hosta** przy rozłączeniu (`onPlayersChanged` + pad przelicza `isHost` w watcherze `players`) — koniec softlocka na ekranie zwycięzcy; `throwpad.reset()` zawsze czyści `input/aim|spin`; auto-skip rozłączonego aktywnego gracza; limit rund dogrywki; `joinRoom` liczy tylko connected + odzyskuje sloty/kolory; kolumna rzutu nie wylewa się na 320px; reset wąskiego toru w dogrywce; suwak głośności nie zamraża menu hosta; pasek emotek trzęsie się tylko na blokadzie; brawa (`clap`) grają; startowy `meta/music`; iOS safe-area.
+2. **Modele** (realny sprzęt / cartoon świat): kręgle → **GLB self-host** `assets/models/pin.glb` (MIT, mgiuca, instancing + proceduralny fallback); kula → `MeshStandardMaterial` (glossy PBR + odbicia z `scene.environment`), głębsze dziury, wciąż proceduralna; **adaptacyjne cienie** `PCFSoftShadowMap` (rozdz. 2048/1024/512 wg liczby torów) + RoomEnvironment. Tor/props/motywy zostają toon. Zweryfikowane na żywo (3 tory, boty): kręgle/kula/cienie/motywy/scoring OK.
+3. **`POMYSLY.md`** (root repo): 20 zrankowanych pomysłów na nowości (chaos/kosmetyki/social, wszystko lokalne, każdy chaos w 2 wariantach). Dokument do wyboru — kod NIE tknięty.
+
 ---
 
 ## 10. Znane ograniczenia / pomysły na dalej (nie zlecone, do rozważenia)
@@ -246,7 +253,8 @@ Testuj narzędziami `preview_*` (dev server + przeglądarka). Nigdy nie proś Ju
 - **Weryfikacja pełnej partii na żywo:** przez usypianie karty w harnessie (pkt 8) nie dało się przeklikać całej partii w jednym ciągu w podglądzie. Rdzeń (frame'y, punktacja, fizyka) potwierdzony osobno, ale warto zagrać realnie na TV+telefonach i wyłapać ewentualne zgrzyty przejść faz / kamery.
 - **Muzyka i część SFX** to linki Mixkit — jak któryś padnie, kod degraduje do ciszy (zgodnie z zasadą), ale wygląd/dźwięk można podmienić na inne zweryfikowane CC0.
 - **`meta.result` z kartą PNG:** karta generowana klientowo na padach i TV (pure canvas w `sharecard.js`), bez serwera. QR na ekranie zwycięzcy prowadzi do widoku share na padzie.
-- Ewentualne kolejne życzenia Jurka → nowy folder wersji (`v1.2/` …) wg pkt 3.
+- **Wydajność 6 torów (v1.3):** modele + cienie testowane na żywo przy 3 torach (płynnie, brak błędów w konsoli). Adaptacyjne cienie (512px przy 6 torach) + instancing kręgli powinny trzymać 60fps@6, ale pełne 6 torów nie było przeklikane end-to-end w harnessie — warto sprawdzić na realnym TV. Jak spadnie fps: obniż progi rozdz. cieni w `configureShadows()` albo wyłącz `castShadow` na kręglach przy ≥5 torach.
+- Ewentualne kolejne życzenia Jurka → nowy folder wersji (`v1.4/` …) wg pkt 3.
 
 ---
 
