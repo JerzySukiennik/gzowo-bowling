@@ -21,7 +21,7 @@ Przeczytaj ten plik w całości ZANIM zaczniesz cokolwiek zmieniać. Potem, zale
 
 Imprezowa gra w kręgle w stylu **Jackbox**: **TV = ekran gry** (renderuje wszystko, jest JEDYNYM symulatorem fizyki i źródłem prawdy), **telefony = pady** (dołączają przez QR, wysyłają tylko wejście i komendy). 1–6 graczy, działa też solo. Interfejs pl/en, host wybiera język w lobby (dotyczy całego TV i wszystkich padów).
 
-- **Live:** https://jerzysukiennik.github.io/gzowo-bowling/ → przekierowuje do aktualnej wersji **`v1.1/`**
+- **Live:** https://jerzysukiennik.github.io/gzowo-bowling/ → przekierowuje do aktualnej wersji **`v1.2/`**
 - **Repo:** https://github.com/JerzySukiennik/gzowo-bowling (publiczne, GitHub Pages z `main`/root)
 - **Stack:** czysty HTML/CSS/JS, ES modules z CDN, ZERO builda/frameworka. three.js 0.160, @dimforge/rapier3d-compat 0.12 (fizyka, wasm), Firebase 10.12.2 (modular), qrcodejs, font Fredoka.
 
@@ -76,12 +76,14 @@ curl -s https://jerzysukiennik.github.io/gzowo-bowling/ | grep -o 'v1[.0-9]*/'  
 
 ---
 
-## 4. Architektura plików (`v1.1/`)
+## 4. Architektura plików (`v1.2/` — aktualna)
 
 ```
-v1.1/
-  index.html            # jeden entry point; importmap three; router po ?role=display|controller&room=KOD; splash + karta błędu
-  css/style.css         # cały design system + wszystkie ekrany (TV i telefon). Blok "v1.1 —" dopisany na końcu
+v1.2/
+  index.html            # jeden entry point; importmap three; router po ?role=display|controller&room=KOD; splash + karta błędu.
+                         #   Font: Fredoka STATYCZNE wagi + latin-ext (poprawne polskie znaki), preconnect gstatic crossorigin
+  css/style.css         # cały design system + wszystkie ekrany (TV i telefon). Bloki "v1.1 —"/"v1.2 —" dopisane na końcu.
+                         #   Fonty telefonu = clamp()/vmin (skalują się do ekranu); fallback --font ma ui-rounded (SF Rounded, ma PL)
   js/
     config.js           # FIREBASE_CONFIG, PLAYER_COLORS, BALL_COLORS, BALL_PATTERNS, LANE_THEMES/THEME_CONFIG,
                          # ballWeightParams(w), BALL_WEIGHT_RANGE, EMOTES, GAME, LANE, PHYSICS, TIMING, CDN, ASSETS(SFX/MUSIC/GLB)
@@ -102,7 +104,7 @@ v1.1/
                          #   physics.js (Rapier: fizyka TYLKO aktywnego toru, rzut+hook+jitter, detekcja przewróconych),
                          #   camera.js (auto sekwencja + tryby follow/side/top + shake), game.js (state machine + PEŁNA punktacja bowlingowa
                          #     + komendy + mulligan/undo + trick shoty + dogrywka + winner/cancel), hud.js (leaderboard, tabliczki+korony,
-                         #     bannery, emotki, pauza-wygaszacz, ekran zwycięzcy/anulowania), effects.js (konfetti/fajerwerki/shake),
+                         #     bannery, emotki, pauza (jednolite tło + tabela per-runda), ekran zwycięzcy/anulowania), effects.js (konfetti/fajerwerki/shake),
                          #     replay.js (nagrywanie+slow-mo powtórki), audio.js (SFX+muzyka+ducking), sharecard.js (PNG 1080x1350)
 index.html (root)       # redirect do aktualnego vX.Y/ (teraz v1.1/), zachowuje ?query
 README.md               # publiczne README gry
@@ -132,6 +134,7 @@ players/{id}:
 
 game:                          # pisze display
   phase, currentPlayerId, currentFrameIndex, throwIndex, round, narrowRound, mulliganAvailable,
+  rackMask,                    # (od v1.2) bitmaska stojących pinów aktywnego toru; pad renderuje DOKŁADNIE te piny (bit i = pin stoi)
   cameraView: { mode: "auto"|"follow"|"side"|"top", setBy, ts },
   suddenDeath: { active, round, playerIds } | null,
   lastResult: { playerId, frameIndex, throwIndex, pinsDown, pinsStanding, isStrike, isSpare, isGutter, trick, ts }
@@ -181,7 +184,8 @@ Fazy: `lobby → intro → roundBanner → nextTurn → aiming → rolling → s
 
 Testuj narzędziami `preview_*` (dev server + przeglądarka). Nigdy nie proś Jurka o ręczne sprawdzenie — weryfikuj sam i pokaż dowód (screenshot).
 
-- **Odpal serwer:** jest config w `Projects/.claude/launch.json` o nazwie `gzowo-bowling` serwujący katalog `Gzowo Bowling` na porcie 8517. `preview_start` z tą nazwą. Potem nawiguj przez `preview_eval` na `http://localhost:8517/v1.1/?role=display` (TV) lub `...&role=controller&room=KOD` (pad).
+- **Odpal serwer:** jest config w `Projects/.claude/launch.json` o nazwie `gzowo-bowling` serwujący katalog `Gzowo Bowling` na porcie 8517. `preview_start` z tą nazwą. Potem nawiguj przez `preview_eval` na `http://localhost:8517/v1.2/?role=display` (TV) lub `...&role=controller&room=KOD` (pad).
+- **Testuj małe telefony:** `preview_resize` na 320×640 (najostrzejszy przypadek na wystający tekst) i 375×812. Po zmianie CSS **przeładuj stronę** (`window.location.reload()`) — serwer statyczny nie ma hot-reload, `preview_eval` mierzy stary arkusz dopóki nie przeładujesz.
 - **PUŁAPKA #1 — usypianie karty w tle:** gdy karta TV nie jest na wierzchu, przeglądarka throttluje `requestAnimationFrame`, więc **pętla gry przestaje tykać** (gra „zawiesza się" na `intro`). To artefakt harnessu, NIE bug (na prawdziwym TV ekran jest zawsze widoczny). `preview_screenshot` na moment budzi kartę. Żeby testować logikę TV nie walcząc z tym: albo szybko naprzemiennie screenshot→akcja, albo **wywołuj ścieżki renderujące bezpośrednio** przez `preview_eval`, np.:
   ```js
   const hud = await import('./js/display/hud.js');
@@ -211,7 +215,7 @@ Testuj narzędziami `preview_*` (dev server + przeglądarka). Nigdy nie proś Ju
 
 **v1** (commit `7113766`) — pełna działająca gra: sieć+lobby+rozgrywka+punktacja, personalizacja kuli, 5 motywów torów, tutorial, emotki, mulligan, menu hosta, korona lidera, trick shoty, wąski tor, bumpery, powtórki po strike'ach, konfetti/fajerwerki, muzyka z duckingiem, karta PNG do udostępnienia, i18n pl/en. Backend Firebase + deploy na Pages.
 
-**v1.1** (commit `83980bf`, AKTUALNA) — poprawki po feedbacku Jurka:
+**v1.1** (commit `83980bf`) — poprawki po feedbacku Jurka:
 1. Prawdziwe 3D dziury na palce w kuli (wgnieciona+ściemniona geometria) + numer wagi; wspólny `shared/ball3d.js`.
 2. Waga kuli 5–15 lb (suwak, prawdziwe funty) zamiast 3 poziomów; fizyka interpolowana.
 3. QR w lobby zadokowany w osobnej kolumnie — nie nachodzi na karty graczy.
@@ -220,11 +224,20 @@ Testuj narzędziami `preview_*` (dev server + przeglądarka). Nigdy nie proś Ju
 6. Tabliczka + korona wyśrodkowane nad torem.
 7. Wszystkie widoki kamery kadrują cały tor (dystans z FOV+aspect).
 8. Host „Zakończ grę" → potwierdzenie → ekran „Gra anulowana" (TV + pady).
-9. Pauza = pełnoekranowy wygaszacz: tabela wyników per runda + powtórki w tle.
+9. Pauza = pełnoekranowy wygaszacz (w v1.2 zmienione na jednolite tło — patrz niżej).
 10. Bumpery jako zaokrąglone kapsuły, uniesione.
 11. Tekstury kuli poprawione (mapowanie equirect: proste paski, czyste half & half).
-12. Kontroler landscape-first, layout siatką bez scrolla podczas gry; „rotate gate" w pionie.
+12. Kontroler landscape-first (w v1.2 COFNIĘTE do pionu — patrz niżej).
 13. Wyśrodkowane intro/join UI, dół ekranu zagospodarowany.
+
+**v1.2** (commit `c701db6`, AKTUALNA) — kolejny feedback Jurka:
+1. **Muzyka w tle gra ciągle** (chill lo-fi): auto-start uzbrojony w `initAudio` (wantMusic=true) + ponownie w `startGame`; realnie rusza przy pierwszym geście (autoplay policy). Host dalej pause/skip/volume. URL-e Mixkit zweryfikowane (200).
+2. **UI telefonu skaluje się do ekranu:** tokeny fontu `--fs-*` przez `clamp()`/`vmin`; przyciski/chipy/segmenty nie przelewają tekstu na małych ekranach (test 320px). `.tv` nadal ma sztywne px.
+3. **Emotki responsywne** (`flex:1 1 0`, `aspect-ratio:1`, `max-width`), glif wyśrodkowany (flex center + line-height:1). Tutorial + hamburger przeniesione do górnego paska, żeby pasek emotek miał całą szerokość.
+4. **Font Fredoka pokazuje polskie znaki:** statyczne wagi `wght@400;500;600;700` + latin-ext + fallback `ui-rounded` (koniec z Arialem dla ą/ę/ł…).
+5. **Kontroler znów pionowy** — strefa flicka „Machnij w górę" nie jest zasłonięta przyciskiem „Pomiń kolejkę". Usunięto `throw-grid`/`rotate-gate`/media landscape.
+6. **Ekran pauzy: jednolite (nieprzezroczyste) tło** (`--bg`), wyśrodkowany nagłówek/tabela/stopka; powtórki w tle wyłączone (i tak niewidoczne). `tickPaused()` to no-op.
+7. **Piny na padzie zgadzają się z 3D:** display pisze `game.rackMask`, pad renderuje dokładnie te piny (`setPins(mask)`), zamiast gasić pierwsze N.
 
 ---
 
