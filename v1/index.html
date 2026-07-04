@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<!-- Gzowo Bowling — single entry point: routes ?role=display|controller to the right app module. -->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#FFF6E9">
+<title>Gzowo Bowling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@master/qrcode.min.js"></script>
+</head>
+<body>
+<div id="splash" class="splash">
+  <div class="splash-inner">
+    <div class="splash-logo">🎳</div>
+    <div class="splash-title">GZOWO BOWLING</div>
+    <div class="splash-dots"><span></span><span></span><span></span></div>
+  </div>
+</div>
+<div id="app"></div>
+<script type="module">
+const params = new URLSearchParams(location.search);
+const splash = document.getElementById("splash");
+const removeSplash = () => {
+  if (!splash || !splash.parentNode) return;
+  splash.classList.add("splash-out");
+  setTimeout(() => splash.remove(), 450);
+};
+const failsafe = setTimeout(removeSplash, 15000);
+try {
+  const i18n = await import("./js/i18n.js");
+  let lang = null;
+  try { lang = localStorage.getItem("gzowo.lang"); } catch (e) {}
+  if (lang !== "pl" && lang !== "en") {
+    lang = (navigator.language || "").toLowerCase().startsWith("pl") ? "pl" : "en";
+  }
+  i18n.setLang(lang);
+  if (params.get("role") === "controller") {
+    document.body.classList.add("phone");
+    const mod = await import("./js/controller/main.js");
+    await mod.startController();
+  } else {
+    document.body.classList.add("tv");
+    const mod = await import("./js/display/main.js");
+    await mod.startDisplay();
+  }
+  clearTimeout(failsafe);
+  removeSplash();
+} catch (err) {
+  console.error("boot failed", err);
+  clearTimeout(failsafe);
+  let message = "Whoops, something toppled like a pin. Refresh and try again!";
+  let buttonLabel = "OK";
+  try {
+    const i18n = await import("./js/i18n.js");
+    message = i18n.t("error.generic");
+    buttonLabel = i18n.t("common.ok");
+  } catch (e2) {}
+  if (splash && splash.parentNode) splash.remove();
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "error-wrap";
+  const card = document.createElement("div");
+  card.className = "card error-card spring-in";
+  const emoji = document.createElement("div");
+  emoji.className = "error-emoji";
+  emoji.textContent = "🎳💥";
+  const title = document.createElement("h1");
+  title.textContent = message;
+  const button = document.createElement("button");
+  button.className = "btn btn-3d btn-primary btn-pill btn-big";
+  button.textContent = buttonLabel;
+  button.addEventListener("click", () => location.reload());
+  card.append(emoji, title, button);
+  wrap.append(card);
+  app.append(wrap);
+}
+</script>
+</body>
+</html>
