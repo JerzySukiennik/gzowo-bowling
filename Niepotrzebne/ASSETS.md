@@ -49,9 +49,16 @@ raw.githubusercontent mirrors (also verified 200):
 - `https://raw.githubusercontent.com/mgiuca/two-hands/main/meshes/bowling-pin.glb`
 - `https://raw.githubusercontent.com/mgiuca/two-hands/main/meshes/bowling-ball.glb`
 
+## Self-hosted model (v1.3+)
+Since v1.3 the pin is **self-hosted in the repo** (no runtime CDN dependency): `v1.3/assets/models/pin.glb` — a byte-for-byte copy of `mgiuca/two-hands@main/meshes/bowling-pin.glb`.
+- 70228 bytes, glTF 2.0 binary, 1 mesh / 3036 tris, 1 PBR material "Pin" with embedded PNG texture (supplies the red neck stripes).
+- Loaded via GLTFLoader in `js/display/scene.js` (`loadPinAsset`), extracted into an instanced geometry/material, behind a timeout + try/catch. On any failure it falls back to the procedural lathe pin — so an empty screen is impossible.
+- Attribution: **Bowling pin model by Matt Giuca (github.com/mgiuca/two-hands), MIT License.** Keep this credit if redistributed.
+- The ball stays procedural (`js/shared/ball3d.js`) so per-player colour/pattern/weight personalization keeps working; v1.3 upgraded its material to `MeshStandardMaterial` (glossy PBR + scene-environment reflections).
+
 ## Licenses
 - **Mixkit** (all SFX + music): Mixkit Free License — free for commercial/non-commercial use in apps and games, no attribution required. Not CC0 but royalty-free with broad game-use grant.
-- **Models**: repo `mgiuca/two-hands` is MIT-licensed (whole repo incl. meshes). If strict CC0 is required, use the game's procedural fallbacks instead.
+- **Models**: repo `mgiuca/two-hands` is MIT-licensed (whole repo incl. meshes). The self-hosted `v1.3/assets/models/pin.glb` carries the MIT credit above. If strict CC0 is required, use the game's procedural fallbacks instead.
 
 ## Verification method
 `curl -s -o /dev/null -w "%{http_code} %{content_type} %{size_download}" -L --max-time 12 URL` — every URL above returned HTTP 200 with `audio/mpeg` or `model/gltf-binary`/`application/octet-stream` and passed size thresholds (>10KB sfx, >300KB music... note: pinFall is 12KB, crash 59KB — short clips, fine).
